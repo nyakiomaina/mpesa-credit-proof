@@ -27,38 +27,62 @@ api.interceptors.response.use(
   }
 );
 
-export const authAPI = {
-  requestOTP: async (phoneNumber: string) => {
-    const response = await api.post('/api/auth/request-otp', { phone_number: phoneNumber });
-    return response.data;
-  },
-  verifyOTP: async (phoneNumber: string, otp: string) => {
-    const response = await api.post('/api/auth/verify-otp', { phone_number: phoneNumber, otp });
-    return response.data;
-  },
-};
-
-export const tillsAPI = {
-  register: async (tillNumber: string, tillType: 'BuyGoods' | 'PayBill') => {
-    const response = await api.post('/api/tills/register', { till_number: tillNumber, till_type: tillType });
-    return response.data;
-  },
-  list: async () => {
-    const response = await api.get('/api/tills');
-    return response.data;
-  },
-  verify: async (tillId: string, verificationCode?: string) => {
-    const response = await api.post('/api/tills/verify', { till_id: tillId, verification_code: verificationCode });
-    return response.data;
-  },
-};
-
 export const proofsAPI = {
-  generate: async (tillId: string, dataSource: string, dateRange?: { from: string; to: string }) => {
+  // Direct proof generation endpoint that works with Supabase transaction format
+  generateDirect: async (transactions: any[]) => {
+    const mappedTransactions = transactions.map(tx => {
+      // Map M-Pesa transaction types to RISC Zero expected types
+      let mappedType = tx.transaction_type || 'Payment';
+      if (mappedType.toLowerCase() === 'received') {
+        mappedType = 'Payment';
+      } else if (mappedType.toLowerCase() === 'reversal') {
+        mappedType = 'Reversal';
+      } else {
+        // For 'sent', 'withdrawal', etc., only include if they're payments
+        // Otherwise filter them out by not including them
+        mappedType = 'Payment'; // Default to Payment for now
+      }
+
+      const timestamp = new Date(tx.transaction_date).getTime() / 1000; // Convert to seconds
+      // Amount is stored in KSh, convert to cents (multiply by 100)
+      // Ensure amount is positive and valid
+      const amountInKsh = Math.abs(parseFloat(tx.amount) || 0);
+      const amount = Math.round(amountInKsh * 100); // Convert to cents
+
+      // Skip transactions with zero or invalid amounts
+      if (amount === 0 || isNaN(timestamp) || timestamp <= 0) {
+        return null;
+      }
+
+      return {
+        timestamp,
+        amount,
+        transaction_type: mappedType,
+        reference: tx.customer_hash || '',
+      };
+    })
+    .filter((tx): tx is NonNullable<typeof tx> => tx !== null)
+    .filter(tx => tx.transaction_type === 'Payment' || tx.transaction_type === 'Reversal');
+
+    // Debug: Log what's being sent to backend
+    console.log('Sending to backend:', {
+      total: transactions.length,
+      filtered: mappedTransactions.length,
+      sample: mappedTransactions.slice(0, 3),
+      amounts: mappedTransactions.map(t => t.amount),
+      types: [...new Set(mappedTransactions.map(t => t.transaction_type))]
+    });
+
+    const response = await api.post('/api/proofs/generate-direct', {
+      transactions: mappedTransactions,
+    });
+    return response.data;
+  },
+  // Original endpoint (requires till_id)
+  generate: async (tillId: string, dataSource: string = 'upload') => {
     const response = await api.post('/api/proofs/generate', {
       till_id: tillId,
       data_source: dataSource,
-      date_range: dateRange,
     });
     return response.data;
   },
@@ -70,26 +94,6 @@ export const proofsAPI = {
     const response = await api.get(`/api/proofs/result/${sessionId}`);
     return response.data;
   },
-  list: async () => {
-    const response = await api.get('/api/proofs');
-    return response.data;
-  },
-};
-
-export const dataAPI = {
-  upload: async (tillId: string, file: File) => {
-    const formData = new FormData();
-    formData.append('till_id', tillId);
-    formData.append('file', file);
-
-    const response = await api.post('/api/data/upload', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
-    return response.data;
-  },
 };
 
 export default api;
-

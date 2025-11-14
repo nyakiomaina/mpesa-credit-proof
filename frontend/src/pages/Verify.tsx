@@ -2,6 +2,7 @@ import { useState, useEffect, FormEvent } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { StatusBadge } from '../components/StatusBadge';
+import { useAuth } from '../contexts/AuthContext';
 import {
   ShieldCheck,
   Search,
@@ -40,6 +41,7 @@ export function Verify() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [verified, setVerified] = useState(false);
+  const { user } = useAuth();
 
   useEffect(() => {
     const urlCode = searchParams.get('code');
@@ -57,38 +59,38 @@ export function Verify() {
     setProof(null);
 
     try {
-      const { data, error: queryError } = await supabase
+      const { data, error: queryError } = await (supabase
         .from('proofs')
         .select('*')
         .eq('verification_code', codeToVerify.toUpperCase())
-        .maybeSingle();
+        .maybeSingle() as any) as any;
 
       if (queryError) throw queryError;
 
       if (!data) {
         setError('Verification code not found');
-        await supabase.from('verification_logs').insert({
+        await (supabase.from('verification_logs').insert({
           proof_id: '00000000-0000-0000-0000-000000000000',
           verification_code: codeToVerify,
           success: false,
-        });
+        } as any) as any);
       } else {
         const now = new Date();
-        const expiresAt = new Date(data.expires_at);
+        const expiresAt = new Date((data as any).expires_at);
 
         if (expiresAt < now) {
           setError('Proof has expired');
-        } else if (data.status !== 'valid') {
+        } else if ((data as any).status !== 'valid') {
           setError('Proof is not valid');
         } else {
           setProof(data);
           setVerified(true);
 
-          await supabase.from('verification_logs').insert({
-            proof_id: data.id,
+          await (supabase.from('verification_logs').insert({
+            proof_id: (data as any).id,
             verification_code: codeToVerify,
             success: true,
-          });
+          } as any) as any);
         }
       }
     } catch (err) {
@@ -151,9 +153,14 @@ export function Verify() {
               <ShieldCheck className="w-8 h-8 text-green-600" />
               <span className="text-xl font-bold text-slate-900">M-Pesa Credit Proof</span>
             </Link>
-            <div className="text-sm text-slate-600">
-              Powered by <span className="font-semibold">RISC Zero</span>
-            </div>
+            {user && (
+              <Link
+                to="/dashboard"
+                className="px-4 py-2 text-sm font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                Dashboard
+              </Link>
+            )}
           </div>
         </div>
       </header>

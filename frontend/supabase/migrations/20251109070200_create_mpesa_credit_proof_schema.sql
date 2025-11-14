@@ -194,6 +194,22 @@ ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE proofs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE verification_logs ENABLE ROW LEVEL SECURITY;
 
+-- Function to handle business profile creation during signup
+CREATE OR REPLACE FUNCTION public.handle_new_business()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.businesses (id, business_name, contact_email)
+  VALUES (NEW.id, COALESCE(NEW.raw_user_meta_data->>'business_name', 'Business'), NEW.email);
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Trigger to automatically create business profile on user signup
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW
+  EXECUTE FUNCTION public.handle_new_business();
+
 -- RLS Policies for businesses
 CREATE POLICY "Users can view own business profile"
   ON businesses FOR SELECT
@@ -270,6 +286,11 @@ CREATE POLICY "Users can update own proofs"
   TO authenticated
   USING (business_id = auth.uid())
   WITH CHECK (business_id = auth.uid());
+
+CREATE POLICY "Users can delete own proofs"
+  ON proofs FOR DELETE
+  TO authenticated
+  USING (business_id = auth.uid());
 
 -- RLS Policies for verification_logs
 CREATE POLICY "Anyone can insert verification logs"

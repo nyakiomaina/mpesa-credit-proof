@@ -122,9 +122,9 @@ export function Onboarding() {
           const data = results.data as TransactionRow[];
           const validTransactions = data.filter(row => row.date && row.amount);
 
-          const { data: upload, error: uploadError } = await supabase
-            .from('transaction_uploads')
-            .insert({
+        const { data: upload, error: uploadError } = await (supabase
+          .from('transaction_uploads')
+          .insert({
               business_id: user.id,
               file_name: file.name,
               transaction_count: validTransactions.length,
@@ -136,32 +136,46 @@ export function Onboarding() {
               }, 0),
               status: 'parsed',
               processed_at: new Date().toISOString(),
-            })
+            } as any)
             .select()
-            .single();
+            .single()) as any;
 
           if (uploadError) throw uploadError;
 
-          const transactions = validTransactions.map(row => ({
-            upload_id: upload.id,
-            business_id: user.id,
-            transaction_date: new Date(row.date!).toISOString(),
-            transaction_type: row.type || 'unknown',
-            amount: parseFloat(row.amount || '0'),
-            balance_after: row.balance ? parseFloat(row.balance) : null,
-            customer_hash: null,
-          }));
+          const transactions = validTransactions.map(row => {
+            // Map M-Pesa CSV types to standard transaction types
+            let txType = row.type || 'unknown';
+            if (txType.toLowerCase() === 'received') {
+              txType = 'Payment';
+            } else if (txType.toLowerCase() === 'reversal') {
+              txType = 'Reversal';
+            } else {
+              // For 'sent', 'withdrawal', etc., map to 'Payment' for now
+              // or you could filter them out if they shouldn't count
+              txType = 'Payment';
+            }
 
-          const { error: txError } = await supabase
+            return {
+              upload_id: (upload as any).id,
+              business_id: user.id,
+              transaction_date: new Date(row.date!).toISOString(),
+              transaction_type: txType,
+              amount: parseFloat(row.amount || '0'),
+              balance_after: row.balance ? parseFloat(row.balance) : null,
+              customer_hash: null,
+            };
+          });
+
+          const { error: txError } = await (supabase
             .from('transactions')
-            .insert(transactions);
+            .insert(transactions as any) as any) as any;
 
           if (txError) throw txError;
 
           setLoading(false);
           setStep('complete');
         },
-        error: (err) => {
+        error: () => {
           setError('Failed to process file');
           setLoading(false);
         },

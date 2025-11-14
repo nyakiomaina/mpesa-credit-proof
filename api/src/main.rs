@@ -52,6 +52,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/tills/verify", post(handlers::tills::verify_till))
         .route("/api/tills", get(handlers::tills::list_tills))
         .route("/api/proofs/generate", post(handlers::proofs::generate_proof))
+        .route("/api/proofs/generate-direct", post(handlers::proofs::generate_direct))
         .route("/api/data/upload", post(handlers::data::upload_data))
         .route(
             "/api/proofs/status/:session_id",

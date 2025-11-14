@@ -19,6 +19,9 @@ pub async fn auth_middleware(
         "/health",
         "/api/auth/request-otp",
         "/api/auth/verify-otp",
+        "/api/proofs/generate-direct",
+        "/api/proofs/status/",
+        "/api/proofs/result/",
     ];
 
     if public_paths.iter().any(|p| path.starts_with(p)) {

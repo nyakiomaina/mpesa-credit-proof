@@ -19,9 +19,13 @@ pub struct Config {
 
 impl Config {
     pub fn from_env() -> anyhow::Result<Self> {
+        // Prefer SUPABASE_DB_URL if set, otherwise use DATABASE_URL, or fallback to local
+        let database_url = std::env::var("SUPABASE_DB_URL")
+            .or_else(|_| std::env::var("DATABASE_URL"))
+            .unwrap_or_else(|_| "postgresql://postgres:postgres@localhost:5432/mpesa_credit".to_string());
+
         Ok(Config {
-            database_url: std::env::var("DATABASE_URL")
-                .unwrap_or_else(|_| "postgresql://postgres:postgres@localhost:5432/mpesa_credit".to_string()),
+            database_url,
             redis_url: std::env::var("REDIS_URL")
                 .unwrap_or_else(|_| "redis://localhost:6379".to_string()),
             bind_address: std::env::var("BIND_ADDRESS")
