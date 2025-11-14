@@ -1,4 +1,7 @@
-use axum::{extract::{Path, State}, Json};
+use axum::{
+    extract::{Path, State},
+    Json,
+};
 use serde::Serialize;
 use sqlx::Row;
 
@@ -34,7 +37,8 @@ pub async fn verify_code(
     let till_id: uuid::Uuid = row.try_get(0).map_err(|e| AppError::Database(e))?;
     let credit_score: Option<i32> = row.try_get(1).ok();
     let metrics: Option<serde_json::Value> = row.try_get(2).ok();
-    let created_at: chrono::DateTime<chrono::Utc> = row.try_get(3).map_err(|e| AppError::Database(e))?;
+    let created_at: chrono::DateTime<chrono::Utc> =
+        row.try_get(3).map_err(|e| AppError::Database(e))?;
 
     // Get till info
     let till_row = sqlx::query("SELECT till_number FROM business_tills WHERE id = $1")
@@ -64,4 +68,3 @@ pub async fn verify_code(
         metrics: metrics.unwrap_or(serde_json::json!({})),
     }))
 }
-

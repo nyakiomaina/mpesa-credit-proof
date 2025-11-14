@@ -1,0 +1,78 @@
+date,type,amount,balance,details
+2024-01-15,received,5000.00,15000.00,Payment from Customer A
+2024-01-16,sent,2000.00,13000.00,Payment to Supplier B
+2024-01-17,received,8000.00,21000.00,Payment from Customer C
+2024-01-18,withdrawal,5000.00,16000.00,ATM Withdrawal
+2024-01-19,received,3000.00,19000.00,Payment from Customer D
+2024-01-20,sent,1500.00,17500.00,Payment to Supplier E
+2024-01-21,received,6000.00,23500.00,Payment from Customer F
+2024-01-22,received,4000.00,27500.00,Payment from Customer G
+2024-01-23,sent,3000.00,24500.00,Payment to Supplier H
+2024-01-24,received,7000.00,31500.00,Payment from Customer I
+2024-01-25,withdrawal,10000.00,21500.00,ATM Withdrawal
+2024-01-26,received,5500.00,27000.00,Payment from Customer J
+2024-01-27,sent,2500.00,24500.00,Payment to Supplier K
+2024-01-28,received,9000.00,33500.00,Payment from Customer L
+2024-01-29,received,3500.00,37000.00,Payment from Customer M
+2024-01-30,sent,4000.00,33000.00,Payment to Supplier N
+2024-02-01,received,6500.00,39500.00,Payment from Customer O
+2024-02-02,received,4500.00,44000.00,Payment from Customer P
+2024-02-03,sent,2000.00,42000.00,Payment to Supplier Q
+2024-02-04,received,8000.00,50000.00,Payment from Customer R
+2024-02-05,withdrawal,15000.00,35000.00,ATM Withdrawal
+2024-02-06,received,5500.00,40500.00,Payment from Customer S
+2024-02-07,received,7000.00,47500.00,Payment from Customer T
+2024-02-08,sent,3000.00,44500.00,Payment to Supplier U
+2024-02-09,received,6000.00,50500.00,Payment from Customer V
+2024-02-10,received,4000.00,54500.00,Payment from Customer W
+2024-02-11,sent,2500.00,52000.00,Payment to Supplier X
+2024-02-12,received,8500.00,60500.00,Payment from Customer Y
+2024-02-13,received,5000.00,65500.00,Payment from Customer Z
+2024-02-14,withdrawal,20000.00,45500.00,ATM Withdrawal
+2024-02-15,received,7500.00,53000.00,Payment from Customer AA
+2024-02-16,received,6000.00,59000.00,Payment from Customer BB
+2024-02-17,sent,3500.00,55500.00,Payment to Supplier CC
+2024-02-18,received,9000.00,64500.00,Payment from Customer DD
+2024-02-19,received,4500.00,69000.00,Payment from Customer EE
+2024-02-20,sent,4000.00,65000.00,Payment to Supplier FF
+2024-02-21,received,8000.00,73000.00,Payment from Customer GG
+2024-02-22,received,5500.00,78500.00,Payment from Customer HH
+2024-02-23,withdrawal,25000.00,53500.00,ATM Withdrawal
+2024-02-24,received,7000.00,60500.00,Payment from Customer II
+2024-02-25,received,6000.00,66500.00,Payment from Customer JJ
+2024-02-26,sent,3000.00,63500.00,Payment to Supplier KK
+2024-02-27,received,8500.00,72000.00,Payment from Customer LL
+2024-02-28,received,5000.00,77000.00,Payment from Customer MM
+2024-02-29,received,7500.00,84500.00,Payment from Customer NN
+2024-03-01,sent,4000.00,80500.00,Payment to Supplier OO
+2024-03-02,received,9000.00,89500.00,Payment from Customer PP
+2024-03-03,received,5500.00,95000.00,Payment from Customer QQ
+2024-03-04,withdrawal,30000.00,65000.00,ATM Withdrawal
+2024-03-05,received,8000.00,73000.00,Payment from Customer RR
+2024-03-06,received,6000.00,79000.00,Payment from Customer SS
+2024-03-07,sent,3500.00,75500.00,Payment to Supplier TT
+2024-03-08,received,8500.00,84000.00,Payment from Customer UU
+2024-03-09,received,7000.00,91000.00,Payment from Customer VV
+2024-03-10,received,5000.00,96000.00,Payment from Customer WW
+2024-03-11,sent,4000.00,92000.00,Payment to Supplier XX
+2024-03-12,received,9000.00,101000.00,Payment from Customer YY
+2024-03-13,received,7500.00,108500.00,Payment from Customer ZZ
+2024-03-14,withdrawal,35000.00,73500.00,ATM Withdrawal
+2024-03-15,received,8000.00,81500.00,Payment from Customer AAA
+2024-03-16,received,6000.00,87500.00,Payment from Customer BBB
+2024-03-17,sent,3000.00,84500.00,Payment to Supplier CCC
+2024-03-18,received,8500.00,93000.00,Payment from Customer DDD
+2024-03-19,received,7000.00,100000.00,Payment from Customer EEE
+2024-03-20,received,5500.00,105500.00,Payment from Customer FFF
+2024-03-21,sent,4000.00,101500.00,Payment to Supplier GGG
+2024-03-22,received,9000.00,110500.00,Payment from Customer HHH
+2024-03-23,received,7500.00,118000.00,Payment from Customer III
+2024-03-24,withdrawal,40000.00,78000.00,ATM Withdrawal
+2024-03-25,received,8000.00,86000.00,Payment from Customer JJJ
+2024-03-26,received,6000.00,92000.00,Payment from Customer KKK
+2024-03-27,sent,3500.00,88500.00,Payment to Supplier LLL
+2024-03-28,received,8500.00,97000.00,Payment from Customer MMM
+2024-03-29,received,7000.00,104000.00,Payment from Customer NNN
+2024-03-30,received,5000.00,109000.00,Payment from Customer OOO
+2024-03-31,sent,4000.00,105000.00,Payment to Supplier PPP
+

@@ -40,13 +40,17 @@ pub async fn register_till(
     claims: Claims,
     Json(req): Json<RegisterTillRequest>,
 ) -> Result<Json<RegisterTillResponse>, AppError> {
-    let user_id = Uuid::parse_str(&claims.user_id).map_err(|e| AppError::Validation(format!("Invalid UUID: {}", e)))?;
+    let user_id = Uuid::parse_str(&claims.user_id)
+        .map_err(|e| AppError::Validation(format!("Invalid UUID: {}", e)))?;
 
     // Validate till number format (5-7 digits)
     if !req.till_number.chars().all(|c| c.is_ascii_digit())
         || req.till_number.len() < 5
-        || req.till_number.len() > 7 {
-        return Err(AppError::Validation("Invalid till number format".to_string()));
+        || req.till_number.len() > 7
+    {
+        return Err(AppError::Validation(
+            "Invalid till number format".to_string(),
+        ));
     }
 
     let till_id = Uuid::new_v4();
@@ -78,8 +82,10 @@ pub async fn verify_till(
     claims: Claims,
     Json(req): Json<VerifyTillRequest>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let user_id = Uuid::parse_str(&claims.user_id).map_err(|e| AppError::Validation(format!("Invalid UUID: {}", e)))?;
-    let till_id = Uuid::parse_str(&req.till_id).map_err(|e| AppError::Validation(format!("Invalid UUID: {}", e)))?;
+    let user_id = Uuid::parse_str(&claims.user_id)
+        .map_err(|e| AppError::Validation(format!("Invalid UUID: {}", e)))?;
+    let till_id = Uuid::parse_str(&req.till_id)
+        .map_err(|e| AppError::Validation(format!("Invalid UUID: {}", e)))?;
 
     // Check if till belongs to user
     let row = sqlx::query("SELECT user_id FROM business_tills WHERE id = $1")
@@ -111,7 +117,8 @@ pub async fn list_tills(
     State(state): State<AppState>,
     claims: Claims,
 ) -> Result<Json<Vec<TillResponse>>, AppError> {
-    let user_id = Uuid::parse_str(&claims.user_id).map_err(|e| AppError::Validation(format!("Invalid UUID: {}", e)))?;
+    let user_id = Uuid::parse_str(&claims.user_id)
+        .map_err(|e| AppError::Validation(format!("Invalid UUID: {}", e)))?;
 
     let rows = sqlx::query(
         r#"
@@ -154,4 +161,3 @@ pub async fn list_tills(
 
     Ok(Json(response))
 }
-

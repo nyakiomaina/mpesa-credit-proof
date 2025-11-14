@@ -1,4 +1,3 @@
-
 #[derive(Clone, Debug)]
 pub struct Config {
     pub database_url: String,
@@ -19,13 +18,19 @@ pub struct Config {
 
 impl Config {
     pub fn from_env() -> anyhow::Result<Self> {
+        // Prefer SUPABASE_DB_URL if set, otherwise use DATABASE_URL, or fallback to local
+        let database_url = std::env::var("SUPABASE_DB_URL")
+            .or_else(|_| std::env::var("DATABASE_URL"))
+            .unwrap_or_else(|_| {
+                "postgresql://postgres:postgres@localhost:5432/mpesa_credit".to_string()
+            });
+
         Ok(Config {
-            database_url: std::env::var("DATABASE_URL")
-                .unwrap_or_else(|_| "postgresql://postgres:postgres@localhost:5432/mpesa_credit".to_string()),
+            database_url,
             redis_url: std::env::var("REDIS_URL")
                 .unwrap_or_else(|_| "redis://localhost:6379".to_string()),
             bind_address: std::env::var("BIND_ADDRESS")
-                .unwrap_or_else(|_| "0.0.0.0:3000".to_string()),
+                .unwrap_or_else(|_| "0.0.0.0:8080".to_string()),
             jwt_secret: std::env::var("JWT_SECRET")
                 .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string()),
             africa_talking_api_key: std::env::var("AFRICA_TALKING_API_KEY")
@@ -37,11 +42,9 @@ impl Config {
             daraja_shortcode: std::env::var("DARAJASHORTCODE").ok(),
             bonsai_api_key: std::env::var("BONSAI_API_KEY").ok(),
             bonsai_api_url: std::env::var("BONSAI_API_URL").ok(),
-            storage_type: std::env::var("STORAGE_TYPE")
-                .unwrap_or_else(|_| "local".to_string()),
+            storage_type: std::env::var("STORAGE_TYPE").unwrap_or_else(|_| "local".to_string()),
             storage_bucket: std::env::var("STORAGE_BUCKET").ok(),
             storage_region: std::env::var("STORAGE_REGION").ok(),
         })
     }
 }
-

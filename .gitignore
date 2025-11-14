@@ -35,3 +35,9 @@ frontend.nextjs.backup/
 # OS
 .DS_Store
 Thumbs.db
+
+# CI/CD
+.github/workflows/*.yml.bak
+
+# Documentation (not for repo)
+SETUP_SUPABASE.md

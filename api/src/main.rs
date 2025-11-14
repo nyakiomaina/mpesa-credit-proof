@@ -45,13 +45,17 @@ async fn main() -> anyhow::Result<()> {
         .route("/health", get(health_check))
         .route("/api/auth/request-otp", post(handlers::auth::request_otp))
         .route("/api/auth/verify-otp", post(handlers::auth::verify_otp))
-        .route(
-            "/api/tills/register",
-            post(handlers::tills::register_till),
-        )
+        .route("/api/tills/register", post(handlers::tills::register_till))
         .route("/api/tills/verify", post(handlers::tills::verify_till))
         .route("/api/tills", get(handlers::tills::list_tills))
-        .route("/api/proofs/generate", post(handlers::proofs::generate_proof))
+        .route(
+            "/api/proofs/generate",
+            post(handlers::proofs::generate_proof),
+        )
+        .route(
+            "/api/proofs/generate-direct",
+            post(handlers::proofs::generate_direct),
+        )
         .route("/api/data/upload", post(handlers::data::upload_data))
         .route(
             "/api/proofs/status/:session_id",
@@ -68,12 +72,10 @@ async fn main() -> anyhow::Result<()> {
             get(handlers::lender::bulk_verify),
         )
         .route("/verify/:code", get(handlers::verification::verify_code))
-        .layer(
-            axum::middleware::from_fn_with_state(
-                app_state.clone(),
-                api::middleware::auth::auth_middleware,
-            ),
-        )
+        .layer(axum::middleware::from_fn_with_state(
+            app_state.clone(),
+            api::middleware::auth::auth_middleware,
+        ))
         .layer(CorsLayer::permissive())
         .with_state(app_state);
 
@@ -88,4 +90,3 @@ async fn main() -> anyhow::Result<()> {
 async fn health_check() -> StatusCode {
     StatusCode::OK
 }
-

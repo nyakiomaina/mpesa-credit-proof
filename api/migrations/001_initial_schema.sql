@@ -1,22 +1,31 @@
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Create enum types
+-- Create enum types (only if they don't exist)
+DO $$ BEGIN
 CREATE TYPE till_type AS ENUM ('BuyGoods', 'PayBill');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
 CREATE TYPE proof_status AS ENUM ('pending', 'processing', 'completed', 'failed');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
 -- Users table
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     phone_number VARCHAR(20) UNIQUE NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_users_phone ON users(phone_number);
+CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone_number);
 
 -- Business tills table
-CREATE TABLE business_tills (
+CREATE TABLE IF NOT EXISTS business_tills (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     till_number VARCHAR(20) NOT NULL,
@@ -29,11 +38,11 @@ CREATE TABLE business_tills (
     UNIQUE(user_id, till_number)
 );
 
-CREATE INDEX idx_tills_user ON business_tills(user_id);
-CREATE INDEX idx_tills_number ON business_tills(till_number);
+CREATE INDEX IF NOT EXISTS idx_tills_user ON business_tills(user_id);
+CREATE INDEX IF NOT EXISTS idx_tills_number ON business_tills(till_number);
 
 -- Transactions table
-CREATE TABLE transactions (
+CREATE TABLE IF NOT EXISTS transactions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     till_id UUID NOT NULL REFERENCES business_tills(id) ON DELETE CASCADE,
     timestamp TIMESTAMPTZ NOT NULL,
@@ -45,12 +54,12 @@ CREATE TABLE transactions (
     UNIQUE(till_id, reference)
 );
 
-CREATE INDEX idx_transactions_till ON transactions(till_id);
-CREATE INDEX idx_transactions_timestamp ON transactions(timestamp);
-CREATE INDEX idx_transactions_reference ON transactions(reference);
+CREATE INDEX IF NOT EXISTS idx_transactions_till ON transactions(till_id);
+CREATE INDEX IF NOT EXISTS idx_transactions_timestamp ON transactions(timestamp);
+CREATE INDEX IF NOT EXISTS idx_transactions_reference ON transactions(reference);
 
 -- Proof sessions table
-CREATE TABLE proof_sessions (
+CREATE TABLE IF NOT EXISTS proof_sessions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     till_id UUID NOT NULL REFERENCES business_tills(id) ON DELETE CASCADE,
@@ -66,10 +75,10 @@ CREATE TABLE proof_sessions (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_proof_sessions_user ON proof_sessions(user_id);
-CREATE INDEX idx_proof_sessions_till ON proof_sessions(till_id);
-CREATE INDEX idx_proof_sessions_code ON proof_sessions(verification_code);
-CREATE INDEX idx_proof_sessions_status ON proof_sessions(status);
+CREATE INDEX IF NOT EXISTS idx_proof_sessions_user ON proof_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_proof_sessions_till ON proof_sessions(till_id);
+CREATE INDEX IF NOT EXISTS idx_proof_sessions_code ON proof_sessions(verification_code);
+CREATE INDEX IF NOT EXISTS idx_proof_sessions_status ON proof_sessions(status);
 
 -- Update timestamps trigger
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -80,14 +89,19 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
+DROP TRIGGER IF EXISTS update_users_updated_at ON users;
 CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_tills_updated_at ON business_tills;
 CREATE TRIGGER update_tills_updated_at BEFORE UPDATE ON business_tills
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_proof_sessions_updated_at ON proof_sessions;
 CREATE TRIGGER update_proof_sessions_updated_at BEFORE UPDATE ON proof_sessions
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+
 
 
 

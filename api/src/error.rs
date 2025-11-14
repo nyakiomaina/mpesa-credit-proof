@@ -42,7 +42,10 @@ impl IntoResponse for AppError {
         let (status, error_message) = match &self {
             AppError::Database(e) => {
                 tracing::error!("Database error: {}", e);
-                (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string())
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Database error".to_string(),
+                )
             }
             AppError::Redis(e) => {
                 tracing::error!("Redis error: {}", e);
@@ -53,9 +56,15 @@ impl IntoResponse for AppError {
             AppError::NotFound(msg) => (StatusCode::NOT_FOUND, msg.clone()),
             AppError::Internal(e) => {
                 tracing::error!("Internal error: {}", e);
-                (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error".to_string())
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Internal server error".to_string(),
+                )
             }
-            AppError::RateLimit => (StatusCode::TOO_MANY_REQUESTS, "Rate limit exceeded".to_string()),
+            AppError::RateLimit => (
+                StatusCode::TOO_MANY_REQUESTS,
+                "Rate limit exceeded".to_string(),
+            ),
             AppError::InvalidOtp => (StatusCode::UNAUTHORIZED, "Invalid OTP".to_string()),
             AppError::FileProcessing(msg) => (StatusCode::BAD_REQUEST, msg.clone()),
         };
@@ -68,4 +77,3 @@ impl IntoResponse for AppError {
         (status, body).into_response()
     }
 }
-

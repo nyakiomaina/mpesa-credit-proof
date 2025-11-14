@@ -12,7 +12,8 @@ import {
   Loader2,
   Plus,
   Calendar,
-  DollarSign
+  DollarSign,
+  Trash2
 } from 'lucide-react';
 
 interface Business {
@@ -42,6 +43,8 @@ export function Dashboard() {
   const [latestUpload, setLatestUpload] = useState<Upload | null>(null);
   const [proofs, setProofs] = useState<Proof[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deletingProofId, setDeletingProofId] = useState<string | null>(null);
+  const [clearingAll, setClearingAll] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -50,23 +53,23 @@ export function Dashboard() {
 
     const fetchData = async () => {
       const [businessRes, uploadsRes, proofsRes] = await Promise.all([
-        supabase.from('businesses').select('business_name').eq('id', user.id).single(),
+        supabase.from('businesses').select('business_name').eq('id', user.id).single() as any,
         supabase
           .from('transaction_uploads')
           .select('*')
           .eq('business_id', user.id)
           .order('uploaded_at', { ascending: false })
-          .limit(1),
+          .limit(1) as any,
         supabase
           .from('proofs')
           .select('id, credit_score, status, generated_at, verification_code')
           .eq('business_id', user.id)
-          .order('generated_at', { ascending: false }),
-      ]);
+          .order('generated_at', { ascending: false }) as any,
+      ]) as any;
 
-      if (businessRes.data) setBusiness(businessRes.data);
-      if (uploadsRes.data && uploadsRes.data.length > 0) setLatestUpload(uploadsRes.data[0]);
-      if (proofsRes.data) setProofs(proofsRes.data);
+      if (businessRes.data) setBusiness(businessRes.data as any);
+      if (uploadsRes.data && uploadsRes.data.length > 0) setLatestUpload(uploadsRes.data[0] as any);
+      if (proofsRes.data) setProofs((proofsRes.data as any) as any[]);
 
       setLoading(false);
     };
@@ -87,6 +90,177 @@ export function Dashboard() {
       style: 'currency',
       currency: 'KES',
     }).format(amount);
+  };
+
+  const handleDeleteProof = async (proofId: string) => {
+    if (!user) return;
+
+    if (!confirm('Are you sure you want to delete this proof? This action cannot be undone.')) {
+      return;
+    }
+
+    setDeletingProofId(proofId);
+    try {
+      const { data, error } = await supabase
+        .from('proofs')
+        .delete()
+        .eq('id', proofId)
+        .eq('business_id', user.id)
+        .select();
+
+      if (error) {
+        console.error('Delete error details:', error);
+        throw error;
+      }
+
+      console.log('Delete result:', data);
+
+      // Remove from local state
+      setProofs(proofs.filter(p => p.id !== proofId));
+
+      // Refresh the list to ensure it's in sync
+      const { data: updatedProofs } = await supabase
+        .from('proofs')
+        .select('id, credit_score, status, generated_at, verification_code')
+        .eq('business_id', user.id)
+        .order('generated_at', { ascending: false });
+
+      if (updatedProofs) {
+        setProofs(updatedProofs as any);
+      }
+    } catch (error: any) {
+      console.error('Error deleting proof:', error);
+      const errorMessage = error?.message || error?.details || 'Failed to delete proof. Please check if the DELETE policy is enabled in Supabase.';
+      alert(`Failed to delete proof: ${errorMessage}`);
+    } finally {
+      setDeletingProofId(null);
+    }
+  };
+
+  const handleClearAllProofs = async () => {
+    if (!user || proofs.length === 0 || clearingAll) return;
+
+    if (!confirm(`Are you sure you want to delete all ${proofs.length} proofs? This action cannot be undone.`)) {
+      return;
+    }
+
+    setClearingAll(true);
+    try {
+      console.log('Attempting to delete all proofs for user:', user.id);
+
+      // First, get all proof IDs to verify we can access them
+      const { data: allProofs, error: fetchError } = await (supabase
+        .from('proofs')
+        .select('id')
+        .eq('business_id', user.id) as any) as any;
+
+      if (fetchError) {
+        console.error('Error fetching proofs:', fetchError);
+        throw fetchError;
+      }
+
+      console.log('Found proofs to delete:', allProofs?.length || 0);
+
+      if (!allProofs || allProofs.length === 0) {
+        setProofs([]);
+        return;
+      }
+
+      // Delete proofs one by one and verify each deletion
+      console.log('Deleting proofs individually...');
+      let deletedCount = 0;
+      const errors: any[] = [];
+
+      for (const proof of allProofs) {
+        const { data: deletedData, error: deleteError } = await supabase
+          .from('proofs')
+          .delete()
+          .eq('id', proof.id)
+          .eq('business_id', user.id)
+          .select();
+
+        if (deleteError) {
+          console.error(`Error deleting proof ${proof.id}:`, deleteError);
+          errors.push({ id: proof.id, error: deleteError });
+        } else if (deletedData && deletedData.length > 0) {
+          deletedCount++;
+          console.log(`✓ Deleted proof ${proof.id}`);
+        } else {
+          // No error but also no data returned - might be RLS blocking
+          console.warn(`⚠ No data returned for proof ${proof.id} - might be blocked by RLS`);
+          errors.push({ id: proof.id, error: { message: 'Delete returned no data - RLS policy may be blocking' } });
+        }
+      }
+
+      console.log(`Deleted ${deletedCount} out of ${allProofs.length} proofs`);
+
+      if (errors.length > 0) {
+        console.warn('Some proofs failed to delete:', errors);
+        if (errors.length === allProofs.length) {
+          throw new Error(`All ${allProofs.length} delete operations failed. The DELETE policy may not be enabled. Please run the SQL script in Supabase to enable it.`);
+        } else {
+          throw new Error(`${errors.length} proofs could not be deleted. ${deletedCount} were deleted successfully.`);
+        }
+      }
+
+      // Wait a moment for database to commit
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Refresh to confirm deletion
+      const { data: updatedProofs, error: refreshError } = await supabase
+        .from('proofs')
+        .select('id, credit_score, status, generated_at, verification_code')
+        .eq('business_id', user.id)
+        .order('generated_at', { ascending: false });
+
+      if (refreshError) {
+        console.error('Error refreshing proofs list:', refreshError);
+        throw refreshError;
+      }
+
+      // Update local state with remaining proofs
+      if (updatedProofs) {
+        setProofs(updatedProofs as any);
+        if (updatedProofs.length > 0) {
+          console.error(`❌ Deletion failed! ${updatedProofs.length} proofs still remain.`);
+          throw new Error(`${updatedProofs.length} proofs could not be deleted. The DELETE policy is likely not enabled. Please run this SQL in Supabase:\n\nDROP POLICY IF EXISTS "Users can delete own proofs" ON proofs;\nCREATE POLICY "Users can delete own proofs" ON proofs FOR DELETE TO authenticated USING (business_id = auth.uid());`);
+        } else {
+          console.log('✅ All proofs deleted successfully!');
+        }
+      } else {
+        // No proofs returned, assume all deleted
+        setProofs([]);
+        console.log('✅ All proofs deleted successfully!');
+      }
+    } catch (error: any) {
+      console.error('Error clearing proofs:', error);
+      let errorMessage = 'Failed to clear proofs. ';
+
+      if (error?.code === '42501') {
+        errorMessage += 'Permission denied. Please ensure the DELETE policy is enabled in Supabase.';
+      } else if (error?.message) {
+        errorMessage += error.message;
+      } else if (error?.details) {
+        errorMessage += error.details;
+      } else {
+        errorMessage += 'Please check the browser console for details.';
+      }
+
+      alert(errorMessage);
+
+      // Refresh the list to show current state
+      const { data: currentProofs } = await supabase
+        .from('proofs')
+        .select('id, credit_score, status, generated_at, verification_code')
+        .eq('business_id', user.id)
+        .order('generated_at', { ascending: false });
+
+      if (currentProofs) {
+        setProofs(currentProofs as any);
+      }
+    } finally {
+      setClearingAll(false);
+    }
   };
 
   if (loading) {
@@ -207,7 +381,28 @@ export function Dashboard() {
         </div>
 
         <div className="bg-white rounded-xl shadow-md p-6">
-          <h2 className="text-xl font-semibold text-slate-900 mb-6">Recent Proofs</h2>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold text-slate-900">Recent Proofs</h2>
+            {proofs.length > 0 && (
+              <button
+                onClick={handleClearAllProofs}
+                disabled={clearingAll}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {clearingAll ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Clearing...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    Clear All
+                  </>
+                )}
+              </button>
+            )}
+          </div>
 
           {proofs.length > 0 ? (
             <div className="overflow-x-auto">
@@ -227,7 +422,7 @@ export function Dashboard() {
                       Status
                     </th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">
-                      Action
+                      Actions
                     </th>
                   </tr>
                 </thead>
@@ -247,6 +442,7 @@ export function Dashboard() {
                         <StatusBadge status={proof.status} />
                       </td>
                       <td className="py-3 px-4">
+                        <div className="flex items-center gap-6">
                         <button
                           onClick={() => navigate(`/proof/${proof.id}`)}
                           className="flex items-center gap-2 text-green-600 hover:text-green-700 font-semibold text-sm"
@@ -254,6 +450,19 @@ export function Dashboard() {
                           <Share2 className="w-4 h-4" />
                           Share
                         </button>
+                          <button
+                            onClick={() => handleDeleteProof(proof.id)}
+                            disabled={deletingProofId === proof.id}
+                            className="text-red-600 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            title="Delete proof"
+                          >
+                            {deletingProofId === proof.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-4 h-4" />
+                            )}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

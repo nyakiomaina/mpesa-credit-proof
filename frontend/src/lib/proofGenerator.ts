@@ -41,15 +41,16 @@ export function calculateProofMetrics(transactions: Transaction[]): ProofMetrics
     (a, b) => new Date(a.transaction_date).getTime() - new Date(b.transaction_date).getTime()
   );
 
-  const now = new Date();
-  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-  const recentTxns = transactions.filter(
-    (t) => new Date(t.transaction_date) >= thirtyDaysAgo
-  );
+  // Calculate monthly volume based on actual transaction period (like RISC Zero does)
+  // Not "last 30 days from now", but average monthly volume from the transaction period
+  const firstDate = new Date(sortedTxns[0].transaction_date);
+  const lastDate = new Date(sortedTxns[sortedTxns.length - 1].transaction_date);
+  const daysInPeriod = Math.max(1, Math.floor((lastDate.getTime() - firstDate.getTime()) / (24 * 60 * 60 * 1000)) + 1);
 
-  const monthlyVolume = recentTxns.reduce((sum, t) => sum + Math.abs(t.amount), 0);
+  const totalVolume = transactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
+  const monthlyVolume = (totalVolume / daysInPeriod) * 30;
 
-  const averageTicketSize = monthlyVolume / (recentTxns.length || 1);
+  const averageTicketSize = totalVolume / (transactions.length || 1);
 
   const uniqueCustomers = new Set(
     transactions.map((t) => t.customer_hash).filter(Boolean)

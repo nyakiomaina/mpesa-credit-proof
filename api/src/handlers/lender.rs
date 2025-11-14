@@ -23,7 +23,8 @@ pub async fn verify_proof(
     State(state): State<AppState>,
     Json(req): Json<VerifyProofRequest>,
 ) -> Result<Json<VerifyProofResponse>, AppError> {
-    let proof_id = Uuid::parse_str(&req.proof_id).map_err(|e| AppError::Validation(format!("Invalid UUID: {}", e)))?;
+    let proof_id = Uuid::parse_str(&req.proof_id)
+        .map_err(|e| AppError::Validation(format!("Invalid UUID: {}", e)))?;
 
     let row = sqlx::query(
         r#"
@@ -41,7 +42,8 @@ pub async fn verify_proof(
     let credit_score: Option<i32> = row.try_get(0).ok();
     let metrics: Option<serde_json::Value> = row.try_get(1).ok();
     let receipt_data: Option<Vec<u8>> = row.try_get(2).ok();
-    let created_at: chrono::DateTime<chrono::Utc> = row.try_get(3).map_err(|e| AppError::Database(e))?;
+    let created_at: chrono::DateTime<chrono::Utc> =
+        row.try_get(3).map_err(|e| AppError::Database(e))?;
 
     // Verify receipt if stored
     let valid = if let Some(ref receipt_data) = receipt_data {
@@ -72,12 +74,7 @@ pub async fn bulk_verify(
     let mut results = Vec::new();
 
     for proof_id in proof_ids {
-        match verify_proof(
-            State(state.clone()),
-            Json(VerifyProofRequest { proof_id }),
-        )
-        .await
-        {
+        match verify_proof(State(state.clone()), Json(VerifyProofRequest { proof_id })).await {
             Ok(Json(response)) => results.push(response),
             Err(_) => {
                 // Skip invalid proofs
@@ -87,4 +84,3 @@ pub async fn bulk_verify(
 
     Ok(Json(results))
 }
-

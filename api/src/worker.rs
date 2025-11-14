@@ -42,14 +42,13 @@ impl Worker {
         let mut redis_conn = self.redis.get_async_connection().await?;
 
         // Blocking pop from queue (wait up to 5 seconds)
-        let result: Option<(String, String)> = redis_conn
-            .brpop("proof_queue", 5.0)
-            .await?;
+        let result: Option<(String, String)> = redis_conn.brpop("proof_queue", 5.0).await?;
 
         let session_id_str = result.map(|(_, val)| val);
 
         if let Some(session_id_str) = session_id_str {
-            let session_id = uuid::Uuid::parse_str(&session_id_str).map_err(|e| anyhow::anyhow!("Invalid UUID: {}", e))?;
+            let session_id = uuid::Uuid::parse_str(&session_id_str)
+                .map_err(|e| anyhow::anyhow!("Invalid UUID: {}", e))?;
             info!("Processing proof session: {}", session_id);
 
             // Update status to processing
@@ -127,4 +126,3 @@ impl Worker {
         }
     }
 }
-

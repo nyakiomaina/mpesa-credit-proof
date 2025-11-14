@@ -24,7 +24,7 @@ services:
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/mpesa_credit
       REDIS_URL: redis://redis:6379
-      BIND_ADDRESS: 0.0.0.0:3000
+      BIND_ADDRESS: 0.0.0.0:8080
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
       AFRICA_TALKING_API_KEY: ${AFRICA_TALKING_API_KEY}
       AFRICA_TALKING_USERNAME: ${AFRICA_TALKING_USERNAME}
@@ -34,7 +34,7 @@ services:
       BONSAI_API_KEY: ${BONSAI_API_KEY:-}
       BONSAI_API_URL: ${BONSAI_API_URL:-}
     ports:
-      - "3000:3000"
+      - "8080:8080"
     depends_on:
       - postgres
       - redis

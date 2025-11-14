@@ -98,7 +98,7 @@ export function Landing() {
               <Lock className="w-12 h-12 text-green-600 mb-4" />
               <h4 className="text-lg font-semibold text-slate-900 mb-2">Zero-Knowledge Proofs</h4>
               <p className="text-slate-600">
-                Powered by RISC Zero zkVM technology. Mathematically verifiable without revealing data.
+                RISC Zero zkVM technology. Mathematically verifiable without revealing data.
               </p>
             </div>
 

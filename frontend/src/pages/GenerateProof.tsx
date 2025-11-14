@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '../components/Layout';
+import { RiscZeroExecution } from '../components/RiscZeroExecution';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { calculateProofMetrics, generateVerificationCode } from '../lib/proofGenerator';
+import { generateVerificationCode } from '../lib/proofGenerator';
+import { proofsAPI } from '../lib/api';
 import {
   Loader2,
   CheckCircle2,
@@ -11,7 +13,8 @@ import {
   TrendingUp,
   Users,
   Activity,
-  Calendar
+  Calendar,
+  Plus
 } from 'lucide-react';
 
 type Stage = 'preparing' | 'computing' | 'generating' | 'complete';
@@ -34,22 +37,43 @@ interface ProofMetrics {
 }
 
 export function GenerateProof() {
-  const [stage, setStage] = useState<Stage>('preparing');
+  const [stage, setStage] = useState<Stage | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [metrics, setMetrics] = useState<ProofMetrics | null>(null);
   const [proofId, setProofId] = useState<string>('');
   const [error, setError] = useState('');
+  const [showRiscZero, setShowRiscZero] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const isGeneratingRef = useRef(false);
+  const componentMountedRef = useRef(false);
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    if (!user) return;
+  // Prevent multiple component instances from running simultaneously
+  if (!componentMountedRef.current) {
+    componentMountedRef.current = true;
+  }
 
     const generateProof = async () => {
+    // Use ref for immediate check (prevents race conditions)
+    if (!user || isGeneratingRef.current) {
+      console.log('Proof generation blocked:', { user: !!user, isGenerating: isGeneratingRef.current });
+      return;
+    }
+
+    console.log('Starting proof generation...');
+    isGeneratingRef.current = true;
+    setIsGenerating(true);
+    setError('');
+    setMetrics(null);
+    setProofId('');
+    setStage(null);
+
       try {
         setStage('preparing');
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+        setShowRiscZero(true);
 
+        // Stage 1: Preparing - Load transactions
         const { data: txData, error: txError } = await supabase
           .from('transactions')
           .select('transaction_date, amount, transaction_type, customer_hash')
@@ -62,14 +86,104 @@ export function GenerateProof() {
 
         setTransactions(txData);
 
+        // Debug: Log transaction data being sent
+        console.log('Transaction data being sent:', {
+          count: txData.length,
+          sample: (txData as any[]).slice(0, 3).map((tx: any) => ({
+            date: tx.transaction_date,
+            amount: tx.amount,
+            type: tx.transaction_type,
+            has_hash: !!tx.customer_hash
+          }))
+        });
+
+        // Call the actual RISC Zero backend API (required - no fallback)
+        let sessionId: string | null = null;
+        let backendResult: {
+          credit_score: number;
+          metrics: {
+            customer_diversity_score?: number;
+            growth_trend?: string;
+            consistency_score?: number;
+            activity_frequency?: string;
+          };
+          receipt_data?: number[] | Uint8Array;
+        } | null = null;
+
+        try {
+          // Call the backend API for actual RISC Zero proof generation
+          const response = await proofsAPI.generateDirect(txData);
+          sessionId = response.session_id;
+
+          // Stage 2: Computing in zkVM - Poll for status
         setStage('computing');
-        await new Promise((resolve) => setTimeout(resolve, 2000));
 
-        const computedMetrics = calculateProofMetrics(txData);
-        setMetrics(computedMetrics);
+          // Poll for proof generation status
+          let status = 'processing';
+          let pollCount = 0;
+          const maxPolls = 120; // 2 minutes max (1 second intervals)
 
+          while (status === 'processing' && pollCount < maxPolls) {
+            await new Promise((resolve) => setTimeout(resolve, 1000)); // Poll every second
+
+            try {
+              const statusResponse = await proofsAPI.getStatus(sessionId!);
+              status = statusResponse.status.toLowerCase();
+
+              if (status === 'completed') {
+                backendResult = await proofsAPI.getResult(sessionId!);
+                break;
+              } else if (status === 'failed') {
+                throw new Error(statusResponse.error || 'Proof generation failed');
+              }
+            } catch (pollError) {
+              // If polling fails, throw error (no fallback)
+              throw new Error(`Failed to poll proof status: ${pollError instanceof Error ? pollError.message : 'Unknown error'}`);
+            }
+
+            pollCount++;
+          }
+
+          if (status !== 'completed') {
+            throw new Error('Proof generation timed out');
+          }
+
+          if (!backendResult) {
+            throw new Error('Proof generation completed but no result received');
+          }
+        } catch (apiError) {
+          // Backend API is required for actual RISC Zero proof generation
+          throw new Error(`RISC Zero proof generation failed: ${apiError instanceof Error ? apiError.message : 'Backend API unavailable. Please ensure the backend server is running.'}`);
+        }
+
+        // Stage 3: Generating final proof - creating receipt
         setStage('generating');
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+
+        // Use metrics from backend RISC Zero execution
+        const backendMetrics = backendResult.metrics;
+
+        // Calculate monthly volume from transactions (backend only returns range enum)
+        // This matches the RISC Zero calculation logic
+        const sortedTxns = [...(txData as Array<{ transaction_date: string; amount: number }>)].sort(
+          (a, b) => new Date(a.transaction_date).getTime() - new Date(b.transaction_date).getTime()
+        );
+        const firstDate = new Date(sortedTxns[0].transaction_date);
+        const lastDate = new Date(sortedTxns[sortedTxns.length - 1].transaction_date);
+        const daysInPeriod = Math.max(1, Math.floor((lastDate.getTime() - firstDate.getTime()) / (24 * 60 * 60 * 1000)) + 1);
+        const totalVolume = (txData as Array<{ amount: number }>).reduce((sum, t) => sum + Math.abs(t.amount), 0);
+        const calculatedMonthlyVolume = (totalVolume / daysInPeriod) * 30;
+
+        const computedMetrics: ProofMetrics = {
+          creditScore: backendResult.credit_score,
+          monthlyVolume: calculatedMonthlyVolume, // Calculate from transactions
+          averageTicketSize: totalVolume / (txData.length || 1),
+          customerDiversityScore: backendMetrics.customer_diversity_score || 0,
+          growthTrend: (backendMetrics.growth_trend?.toLowerCase() as 'growing' | 'stable' | 'declining') || 'stable',
+          consistencyScore: backendMetrics.consistency_score || 0,
+          activityFrequency: (backendMetrics.activity_frequency?.toLowerCase() as 'high' | 'medium' | 'low') || 'medium',
+        };
+
+        setMetrics(computedMetrics);
 
         const { data: latestUpload } = await supabase
           .from('transaction_uploads')
@@ -82,11 +196,43 @@ export function GenerateProof() {
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + 90);
 
-        const { data: proof, error: proofError } = await supabase
+        // Verify receipt if available (receipt was already verified in backend, but we store it for future verification)
+        // Also check if credit score is valid (0 is not a valid credit score)
+        let proofStatus: 'valid' | 'generating' | 'failed' = 'valid';
+        let receiptBase64: string | null = null;
+
+        if (backendResult.receipt_data) {
+          // Receipt was already verified in execute_zkvm_proof_direct, but we store it for future verification
+          // Convert Uint8Array to base64 for storage in JSONB
+          if (backendResult.receipt_data instanceof Array) {
+            receiptBase64 = btoa(String.fromCharCode(...backendResult.receipt_data));
+          } else if (backendResult.receipt_data instanceof Uint8Array) {
+            receiptBase64 = btoa(String.fromCharCode(...Array.from(backendResult.receipt_data)));
+          } else {
+            console.warn('Unexpected receipt_data format:', typeof backendResult.receipt_data);
+          }
+        } else {
+          // No receipt means proof generation failed
+          proofStatus = 'failed';
+          throw new Error('Proof generation completed but no receipt was generated');
+        }
+
+        // A credit score of 0 indicates no valid transactions were processed
+        // This should be marked as failed, not valid
+        if (computedMetrics.creditScore === 0) {
+          proofStatus = 'failed';
+          console.error('Credit score is 0 - no valid transactions were processed. Check transaction data and types.');
+          console.error('Backend result:', backendResult);
+          console.error('Computed metrics:', computedMetrics);
+          console.error('Transaction count sent:', txData.length);
+          // Don't throw - allow the proof to be saved with failed status so user can see the issue
+        }
+
+        const { data: proof, error: proofError } = await (supabase
           .from('proofs')
           .insert({
             business_id: user.id,
-            upload_id: latestUpload?.id || null,
+            upload_id: latestUpload ? (latestUpload as { id?: string }).id || null : null,
             verification_code: generateVerificationCode(),
             credit_score: computedMetrics.creditScore,
             monthly_volume: computedMetrics.monthlyVolume,
@@ -98,25 +244,34 @@ export function GenerateProof() {
             proof_data: {
               transaction_count: txData.length,
               generated_by: 'RISC Zero zkVM v1.0',
+              risc_zero_verified: true,
+              receipt_available: true,
+              receipt_data: receiptBase64, // Store receipt as base64 in JSONB
             },
             circuit_version: 'v1.0',
-            status: 'valid',
+            status: proofStatus,
             expires_at: expiresAt.toISOString(),
-          })
+          } as any)
           .select()
-          .single();
+          .single()) as any;
 
         if (proofError) throw proofError;
 
-        setProofId(proof.id);
+        setProofId((proof as { id: string }).id);
         setStage('complete');
+        // Keep RISC Zero window open for a moment to show completion message
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+        setShowRiscZero(false);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to generate proof');
+        setShowRiscZero(false);
+      } finally {
+        isGeneratingRef.current = false;
+        setIsGenerating(false);
       }
     };
 
-    generateProof();
-  }, [user]);
+  // Remove automatic execution - user must click button
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-KE', {
@@ -145,11 +300,47 @@ export function GenerateProof() {
 
   return (
     <Layout>
+      {showRiscZero && stage && (
+        <RiscZeroExecution
+          isRunning={stage !== 'complete'}
+          stage={stage}
+          onClose={() => setShowRiscZero(false)}
+        />
+      )}
       <div className="max-w-4xl mx-auto">
         <div className="bg-white rounded-2xl shadow-xl p-8">
           <h1 className="text-3xl font-bold text-slate-900 mb-8 text-center">
             Generate Credit Proof
           </h1>
+
+          {!stage && !error && (
+            <div className="text-center py-8">
+              <p className="text-slate-600 mb-6">
+                Click the button below to generate a new credit proof from your M-Pesa transaction data.
+              </p>
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  generateProof();
+                }}
+                disabled={isGenerating || isGeneratingRef.current}
+                className="bg-green-600 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 mx-auto"
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-5 h-5" />
+                    Generate Proof
+                  </>
+                )}
+              </button>
+            </div>
+          )}
 
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
@@ -163,11 +354,11 @@ export function GenerateProof() {
             </div>
           )}
 
-          {!error && (
+          {!error && stage && (
             <div className="space-y-8">
               <div className="space-y-4">
                 <div className={`flex items-start gap-4 p-4 rounded-lg transition-colors ${
-                  stage === 'preparing' ? 'bg-blue-50' : 'bg-green-50'
+                  stage === 'preparing' ? 'bg-blue-50' : stage === 'complete' ? 'bg-green-50' : 'bg-slate-50'
                 }`}>
                   <div className="flex-shrink-0 mt-1">
                     {stage === 'preparing' ? (
@@ -190,15 +381,15 @@ export function GenerateProof() {
                 </div>
 
                 <div className={`flex items-start gap-4 p-4 rounded-lg transition-colors ${
-                  stage === 'computing' ? 'bg-blue-50' : stage === 'preparing' ? 'bg-slate-50' : 'bg-green-50'
+                  stage === 'computing' ? 'bg-blue-50' : stage === 'complete' ? 'bg-green-50' : 'bg-slate-50'
                 }`}>
                   <div className="flex-shrink-0 mt-1">
                     {stage === 'computing' ? (
                       <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
-                    ) : stage === 'preparing' ? (
-                      <Shield className="w-6 h-6 text-slate-400" />
-                    ) : (
+                    ) : stage === 'complete' ? (
                       <CheckCircle2 className="w-6 h-6 text-green-600" />
+                    ) : (
+                      <Shield className="w-6 h-6 text-slate-400" />
                     )}
                   </div>
                   <div className="flex-1">
@@ -214,7 +405,7 @@ export function GenerateProof() {
                 </div>
 
                 <div className={`flex items-start gap-4 p-4 rounded-lg transition-colors ${
-                  stage === 'generating' ? 'bg-blue-50' : ['preparing', 'computing'].includes(stage) ? 'bg-slate-50' : 'bg-green-50'
+                  stage === 'generating' ? 'bg-blue-50' : stage === 'complete' ? 'bg-green-50' : 'bg-slate-50'
                 }`}>
                   <div className="flex-shrink-0 mt-1">
                     {stage === 'generating' ? (

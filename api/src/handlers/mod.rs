@@ -25,7 +25,10 @@ pub struct AppState {
 impl FromRequestParts<AppState> for Claims {
     type Rejection = StatusCode;
 
-    async fn from_request_parts(parts: &mut Parts, _state: &AppState) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts(
+        parts: &mut Parts,
+        _state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
         parts
             .extensions
             .get::<Claims>()
@@ -33,4 +36,3 @@ impl FromRequestParts<AppState> for Claims {
             .ok_or(StatusCode::UNAUTHORIZED)
     }
 }
-
