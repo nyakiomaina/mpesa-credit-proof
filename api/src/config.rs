@@ -30,7 +30,7 @@ impl Config {
             redis_url: std::env::var("REDIS_URL")
                 .unwrap_or_else(|_| "redis://localhost:6379".to_string()),
             bind_address: std::env::var("BIND_ADDRESS")
-                .unwrap_or_else(|_| "0.0.0.0:3000".to_string()),
+                .unwrap_or_else(|_| "0.0.0.0:8080".to_string()),
             jwt_secret: std::env::var("JWT_SECRET")
                 .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string()),
             africa_talking_api_key: std::env::var("AFRICA_TALKING_API_KEY")

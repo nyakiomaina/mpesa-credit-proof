@@ -54,7 +54,7 @@ export function GenerateProof() {
     componentMountedRef.current = true;
   }
 
-  const generateProof = async () => {
+    const generateProof = async () => {
     // Use ref for immediate check (prevents race conditions)
     if (!user || isGeneratingRef.current) {
       console.log('Proof generation blocked:', { user: !!user, isGenerating: isGeneratingRef.current });
@@ -69,7 +69,7 @@ export function GenerateProof() {
     setProofId('');
     setStage(null);
 
-    try {
+      try {
         setStage('preparing');
         setShowRiscZero(true);
 
@@ -116,7 +116,7 @@ export function GenerateProof() {
           sessionId = response.session_id;
 
           // Stage 2: Computing in zkVM - Poll for status
-          setStage('computing');
+        setStage('computing');
 
           // Poll for proof generation status
           let status = 'processing';

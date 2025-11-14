@@ -443,13 +443,13 @@ export function Dashboard() {
                       </td>
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-6">
-                          <button
-                            onClick={() => navigate(`/proof/${proof.id}`)}
-                            className="flex items-center gap-2 text-green-600 hover:text-green-700 font-semibold text-sm"
-                          >
-                            <Share2 className="w-4 h-4" />
-                            Share
-                          </button>
+                        <button
+                          onClick={() => navigate(`/proof/${proof.id}`)}
+                          className="flex items-center gap-2 text-green-600 hover:text-green-700 font-semibold text-sm"
+                        >
+                          <Share2 className="w-4 h-4" />
+                          Share
+                        </button>
                           <button
                             onClick={() => handleDeleteProof(proof.id)}
                             disabled={deletingProofId === proof.id}

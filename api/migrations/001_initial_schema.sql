@@ -3,13 +3,13 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Create enum types (only if they don't exist)
 DO $$ BEGIN
-    CREATE TYPE till_type AS ENUM ('BuyGoods', 'PayBill');
+CREATE TYPE till_type AS ENUM ('BuyGoods', 'PayBill');
 EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
 
 DO $$ BEGIN
-    CREATE TYPE proof_status AS ENUM ('pending', 'processing', 'completed', 'failed');
+CREATE TYPE proof_status AS ENUM ('pending', 'processing', 'completed', 'failed');
 EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;

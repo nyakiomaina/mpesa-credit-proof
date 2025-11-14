@@ -86,8 +86,8 @@ export function Upload() {
           const validTransactions = data.filter(row => row.date && row.amount);
 
         const { data: upload, error: uploadError } = await (supabase
-          .from('transaction_uploads')
-          .insert({
+            .from('transaction_uploads')
+            .insert({
               business_id: user.id,
               file_name: file.name,
               transaction_count: validTransactions.length,
@@ -117,12 +117,12 @@ export function Upload() {
 
             return {
               upload_id: (upload as any).id,
-              business_id: user.id,
-              transaction_date: new Date(row.date!).toISOString(),
+            business_id: user.id,
+            transaction_date: new Date(row.date!).toISOString(),
               transaction_type: txType,
-              amount: parseFloat(row.amount || '0'),
-              balance_after: row.balance ? parseFloat(row.balance) : null,
-              customer_hash: null,
+            amount: parseFloat(row.amount || '0'),
+            balance_after: row.balance ? parseFloat(row.balance) : null,
+            customer_hash: null,
             };
           });
 
