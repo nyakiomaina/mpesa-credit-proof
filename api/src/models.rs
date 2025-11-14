@@ -94,10 +94,3 @@ pub enum GrowthTrend {
     Growing,
     Rapid,
 }
-
-
-
-
-
-
-

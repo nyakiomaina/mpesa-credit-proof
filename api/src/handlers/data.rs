@@ -22,21 +22,35 @@ pub async fn upload_data(
     claims: Claims,
     mut multipart: Multipart,
 ) -> Result<Json<UploadDataResponse>, AppError> {
-    let user_id = Uuid::parse_str(&claims.user_id).map_err(|e| AppError::Validation(format!("Invalid UUID: {}", e)))?;
+    let user_id = Uuid::parse_str(&claims.user_id)
+        .map_err(|e| AppError::Validation(format!("Invalid UUID: {}", e)))?;
     let mut till_id: Option<Uuid> = None;
     let mut file_data: Option<Vec<u8>> = None;
     let mut file_type: Option<String> = None;
 
     // Parse multipart form
-    while let Some(field) = multipart.next_field().await.map_err(|e| AppError::FileProcessing(e.to_string()))? {
+    while let Some(field) = multipart
+        .next_field()
+        .await
+        .map_err(|e| AppError::FileProcessing(e.to_string()))?
+    {
         let name = field.name().unwrap_or("").to_string();
         let content_type = field.content_type().map(|s| s.to_string());
 
         if name == "till_id" {
-            let value = field.text().await.map_err(|e| AppError::FileProcessing(e.to_string()))?;
-            till_id = Some(Uuid::parse_str(&value).map_err(|e| AppError::Validation(format!("Invalid UUID: {}", e)))?);
+            let value = field
+                .text()
+                .await
+                .map_err(|e| AppError::FileProcessing(e.to_string()))?;
+            till_id = Some(
+                Uuid::parse_str(&value)
+                    .map_err(|e| AppError::Validation(format!("Invalid UUID: {}", e)))?,
+            );
         } else if name == "file" {
-            let bytes = field.bytes().await.map_err(|e| AppError::FileProcessing(e.to_string()))?;
+            let bytes = field
+                .bytes()
+                .await
+                .map_err(|e| AppError::FileProcessing(e.to_string()))?;
             file_data = Some(bytes.to_vec());
             file_type = content_type;
         }
@@ -61,8 +75,9 @@ pub async fn upload_data(
     }
 
     // Process file based on type
-    let transactions = if file_type.as_deref() == Some("text/csv") ||
-                          file_type.as_deref() == Some("application/vnd.ms-excel") {
+    let transactions = if file_type.as_deref() == Some("text/csv")
+        || file_type.as_deref() == Some("application/vnd.ms-excel")
+    {
         parse_csv(&file_data)?
     } else if file_type.as_deref() == Some("application/pdf") {
         parse_pdf(&file_data)?
@@ -113,9 +128,7 @@ struct ParsedTransaction {
 }
 
 fn parse_csv(data: &[u8]) -> Result<Vec<ParsedTransaction>, AppError> {
-    let mut reader = ReaderBuilder::new()
-        .has_headers(true)
-        .from_reader(data);
+    let mut reader = ReaderBuilder::new().has_headers(true).from_reader(data);
 
     let mut transactions = Vec::new();
 
@@ -177,7 +190,10 @@ fn parse_date(date_str: &str) -> Result<chrono::DateTime<chrono::Utc>, AppError>
         }
     }
 
-    Err(AppError::FileProcessing(format!("Unable to parse date: {}", date_str)))
+    Err(AppError::FileProcessing(format!(
+        "Unable to parse date: {}",
+        date_str
+    )))
 }
 
 fn parse_amount(amount_str: &str) -> Result<i64, AppError> {
@@ -194,4 +210,3 @@ fn parse_amount(amount_str: &str) -> Result<i64, AppError> {
     // Convert to cents
     Ok((amount * 100.0) as i64)
 }
-

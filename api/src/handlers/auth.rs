@@ -116,4 +116,3 @@ pub async fn verify_otp(
         },
     }))
 }
-

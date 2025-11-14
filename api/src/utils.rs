@@ -9,7 +9,11 @@ pub struct Claims {
     pub exp: usize,
 }
 
-pub fn generate_jwt(user_id: uuid::Uuid, phone_number: &str, secret: &str) -> anyhow::Result<String> {
+pub fn generate_jwt(
+    user_id: uuid::Uuid,
+    phone_number: &str,
+    secret: &str,
+) -> anyhow::Result<String> {
     let expiration = chrono::Utc::now()
         .checked_add_signed(chrono::Duration::days(7))
         .expect("valid timestamp")
@@ -63,4 +67,3 @@ pub fn generate_verification_code() -> String {
         .take(12)
         .collect()
 }
-

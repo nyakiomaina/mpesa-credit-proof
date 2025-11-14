@@ -44,7 +44,10 @@ impl StorageBackend for LocalStorage {
 }
 
 impl StorageService {
-    pub fn create_backend(storage_type: &str, _config: &crate::config::Config) -> anyhow::Result<Box<dyn StorageBackend>> {
+    pub fn create_backend(
+        storage_type: &str,
+        _config: &crate::config::Config,
+    ) -> anyhow::Result<Box<dyn StorageBackend>> {
         match storage_type {
             "local" => Ok(Box::new(LocalStorage::new("./storage".to_string()))),
             "s3" | "r2" => {
@@ -55,4 +58,3 @@ impl StorageService {
         }
     }
 }
-

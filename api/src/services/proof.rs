@@ -99,20 +99,19 @@ impl ProofService {
         Ok(())
     }
 
-    async fn execute_zkvm_proof(
-        input: ProofInput,
-    ) -> anyhow::Result<ProofOutput> {
+    async fn execute_zkvm_proof(input: ProofInput) -> anyhow::Result<ProofOutput> {
         Self::execute_zkvm_proof_direct(input).await
     }
 
     // Public method for direct proof generation (used by generate_direct endpoint)
-    pub async fn execute_zkvm_proof_direct(
-        input: ProofInput,
-    ) -> anyhow::Result<ProofOutput> {
+    pub async fn execute_zkvm_proof_direct(input: ProofInput) -> anyhow::Result<ProofOutput> {
         use methods::{GUEST_CODE_FOR_ZK_PROOF_ELF, GUEST_CODE_FOR_ZK_PROOF_ID};
         use risc0_zkvm::{default_prover, ExecutorEnv};
 
-        tracing::info!("🚀 Starting RISC Zero proof generation for {} transactions", input.transactions.len());
+        tracing::info!(
+            "🚀 Starting RISC Zero proof generation for {} transactions",
+            input.transactions.len()
+        );
 
         // RISC0_DEV_MODE environment variable is automatically respected by default_prover()
         // When set to 1, proof generation will be much faster (skips actual proving)
@@ -123,64 +122,66 @@ impl ProofService {
 
         // RISC Zero's prove() is blocking, so we use block_in_place to run it
         // This moves the blocking work to a blocking thread pool
-        let (receipt_data, output) = tokio::task::block_in_place(|| -> anyhow::Result<(Vec<u8>, ProofOutput)> {
-            tracing::info!("📦 Building RISC Zero execution environment...");
-            let env = ExecutorEnv::builder()
-                .write(&input)
-                .map_err(|e| {
-                    tracing::error!("❌ Failed to build execution environment: {}", e);
-                    anyhow::anyhow!("Env build error: {}", e)
-                })?
-                .build()
-                .map_err(|e| {
-                    tracing::error!("❌ Failed to build execution environment: {}", e);
-                    anyhow::anyhow!("Env build error: {}", e)
-                })?;
+        let (receipt_data, output) =
+            tokio::task::block_in_place(|| -> anyhow::Result<(Vec<u8>, ProofOutput)> {
+                tracing::info!("📦 Building RISC Zero execution environment...");
+                let env = ExecutorEnv::builder()
+                    .write(&input)
+                    .map_err(|e| {
+                        tracing::error!("❌ Failed to build execution environment: {}", e);
+                        anyhow::anyhow!("Env build error: {}", e)
+                    })?
+                    .build()
+                    .map_err(|e| {
+                        tracing::error!("❌ Failed to build execution environment: {}", e);
+                        anyhow::anyhow!("Env build error: {}", e)
+                    })?;
 
-            tracing::info!("🔐 Starting RISC Zero prover (this may take a while)...");
-            let prover = default_prover();
-            let prove_info = prover.prove(env, GUEST_CODE_FOR_ZK_PROOF_ELF)
-                .map_err(|e| {
-                    tracing::error!("❌ RISC Zero proof generation failed: {}", e);
-                    e
-                })?;
-            let receipt = prove_info.receipt;
+                tracing::info!("🔐 Starting RISC Zero prover (this may take a while)...");
+                let prover = default_prover();
+                let prove_info = prover
+                    .prove(env, GUEST_CODE_FOR_ZK_PROOF_ELF)
+                    .map_err(|e| {
+                        tracing::error!("❌ RISC Zero proof generation failed: {}", e);
+                        e
+                    })?;
+                let receipt = prove_info.receipt;
 
-            tracing::info!("✅ RISC Zero proof generated successfully!");
-            tracing::info!("🔍 Verifying receipt...");
+                tracing::info!("✅ RISC Zero proof generated successfully!");
+                tracing::info!("🔍 Verifying receipt...");
 
-            // Verify receipt
-            receipt.verify(GUEST_CODE_FOR_ZK_PROOF_ID)
-                .map_err(|e| {
+                // Verify receipt
+                receipt.verify(GUEST_CODE_FOR_ZK_PROOF_ID).map_err(|e| {
                     tracing::error!("❌ Receipt verification failed: {}", e);
                     e
                 })?;
 
-            tracing::info!("✅ Receipt verified successfully!");
+                tracing::info!("✅ Receipt verified successfully!");
 
-            // Decode output
-            tracing::info!("📊 Decoding proof output...");
-            let output: ProofOutput = receipt.journal.decode()
-                .map_err(|e| {
+                // Decode output
+                tracing::info!("📊 Decoding proof output...");
+                let output: ProofOutput = receipt.journal.decode().map_err(|e| {
                     tracing::error!("❌ Failed to decode output: {}", e);
                     e
                 })?;
 
-            tracing::info!("✅ Proof output decoded: credit_score={}, monthly_volume_range={:?}",
-                output.credit_score, output.metrics.monthly_volume_range);
+                tracing::info!(
+                    "✅ Proof output decoded: credit_score={}, monthly_volume_range={:?}",
+                    output.credit_score,
+                    output.metrics.monthly_volume_range
+                );
 
-            // Serialize receipt for storage
-            let receipt_data = bincode::serialize(&receipt)
-                .map_err(|e| {
+                // Serialize receipt for storage
+                let receipt_data = bincode::serialize(&receipt).map_err(|e| {
                     tracing::error!("❌ Failed to serialize receipt: {}", e);
                     e
                 })?;
 
-            tracing::info!("💾 Receipt serialized ({} bytes)", receipt_data.len());
-            tracing::info!("🎉 RISC Zero proof generation completed successfully!");
+                tracing::info!("💾 Receipt serialized ({} bytes)", receipt_data.len());
+                tracing::info!("🎉 RISC Zero proof generation completed successfully!");
 
-            Ok((receipt_data, output))
-        })?;
+                Ok((receipt_data, output))
+            })?;
 
         Ok(ProofOutput {
             receipt_data: Some(receipt_data),
@@ -208,4 +209,3 @@ pub struct ProofOutput {
     pub metrics: crate::models::BusinessMetrics,
     pub receipt_data: Option<Vec<u8>>,
 }
-

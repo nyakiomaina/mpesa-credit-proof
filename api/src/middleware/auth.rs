@@ -49,4 +49,3 @@ pub async fn auth_middleware(
         Err(_) => Err(StatusCode::UNAUTHORIZED),
     }
 }
-

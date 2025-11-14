@@ -48,7 +48,7 @@ export function Verify() {
     if (urlCode) {
       handleVerify(urlCode);
     }
-  }, [searchParams]);
+  }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleVerify = async (verificationCode?: string) => {
     const codeToVerify = verificationCode || code;
@@ -93,7 +93,7 @@ export function Verify() {
           } as any) as any);
         }
       }
-    } catch (err) {
+    } catch {
       setError('Failed to verify proof. Please try again.');
     } finally {
       setLoading(false);

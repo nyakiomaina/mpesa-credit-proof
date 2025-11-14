@@ -8,10 +8,3 @@ pub async fn create_pool(database_url: &str) -> anyhow::Result<PgPool> {
 
     Ok(pool)
 }
-
-
-
-
-
-
-

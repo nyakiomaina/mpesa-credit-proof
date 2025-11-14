@@ -1,4 +1,7 @@
-use axum::{extract::{Path, State}, Json};
+use axum::{
+    extract::{Path, State},
+    Json,
+};
 use redis::AsyncCommands;
 use serde::{Deserialize, Serialize};
 use sqlx::Row;
@@ -70,8 +73,10 @@ pub async fn generate_proof(
     claims: Claims,
     Json(req): Json<GenerateProofRequest>,
 ) -> Result<Json<GenerateProofResponse>, AppError> {
-    let user_id = Uuid::parse_str(&claims.user_id).map_err(|e| AppError::Validation(format!("Invalid UUID: {}", e)))?;
-    let till_id = Uuid::parse_str(&req.till_id).map_err(|e| AppError::Validation(format!("Invalid UUID: {}", e)))?;
+    let user_id = Uuid::parse_str(&claims.user_id)
+        .map_err(|e| AppError::Validation(format!("Invalid UUID: {}", e)))?;
+    let till_id = Uuid::parse_str(&req.till_id)
+        .map_err(|e| AppError::Validation(format!("Invalid UUID: {}", e)))?;
 
     // Verify till belongs to user
     let row = sqlx::query("SELECT user_id FROM business_tills WHERE id = $1")
@@ -99,7 +104,10 @@ pub async fn generate_proof(
 
     // Queue proof generation job
     let mut redis_conn = state.redis.get_async_connection().await?;
-    redis_conn.lpush("proof_queue", session_id.to_string()).await.map_err(|e| AppError::Redis(e))?;
+    redis_conn
+        .lpush("proof_queue", session_id.to_string())
+        .await
+        .map_err(|e| AppError::Redis(e))?;
 
     Ok(Json(GenerateProofResponse {
         session_id: session_id.to_string(),
@@ -112,7 +120,8 @@ pub async fn get_proof_status(
     State(state): State<AppState>,
     Path(session_id): Path<String>,
 ) -> Result<Json<ProofStatusResponse>, AppError> {
-    let session_id = Uuid::parse_str(&session_id).map_err(|e| AppError::Validation(format!("Invalid UUID: {}", e)))?;
+    let session_id = Uuid::parse_str(&session_id)
+        .map_err(|e| AppError::Validation(format!("Invalid UUID: {}", e)))?;
 
     // Allow access without auth for direct proofs (user_id = nil)
     // For authenticated requests, we'll check user_id in the query
@@ -137,7 +146,8 @@ pub async fn get_proof_status(
         None
     };
 
-    let (status_opt, progress, error_message) = session.ok_or_else(|| AppError::NotFound("Session not found".to_string()))?;
+    let (status_opt, progress, error_message) =
+        session.ok_or_else(|| AppError::NotFound("Session not found".to_string()))?;
     let status = status_opt.ok_or_else(|| AppError::NotFound("Session not found".to_string()))?;
 
     Ok(Json(ProofStatusResponse {
@@ -151,7 +161,8 @@ pub async fn get_proof_result(
     State(state): State<AppState>,
     Path(session_id): Path<String>,
 ) -> Result<Json<ProofResultResponse>, AppError> {
-    let session_id = Uuid::parse_str(&session_id).map_err(|e| AppError::Validation(format!("Invalid UUID: {}", e)))?;
+    let session_id = Uuid::parse_str(&session_id)
+        .map_err(|e| AppError::Validation(format!("Invalid UUID: {}", e)))?;
 
     // Allow access without auth for direct proofs (user_id = nil)
     let row = sqlx::query(
@@ -165,13 +176,15 @@ pub async fn get_proof_result(
     .fetch_optional(&state.db)
     .await?;
 
-    let row = row.ok_or_else(|| AppError::NotFound("Proof not found or not completed".to_string()))?;
+    let row =
+        row.ok_or_else(|| AppError::NotFound("Proof not found or not completed".to_string()))?;
 
     let id: Uuid = row.try_get(0).map_err(|e| AppError::Database(e))?;
     let credit_score: Option<i32> = row.try_get(1).ok();
     let metrics: Option<serde_json::Value> = row.try_get(2).ok();
     let verification_code: String = row.try_get(3).map_err(|e| AppError::Database(e))?;
-    let expires_at: chrono::DateTime<chrono::Utc> = row.try_get(4).map_err(|e| AppError::Database(e))?;
+    let expires_at: chrono::DateTime<chrono::Utc> =
+        row.try_get(4).map_err(|e| AppError::Database(e))?;
     let receipt_data: Option<Vec<u8>> = row.try_get(5).ok();
 
     let verification_url = format!("https://app.domain.com/verify/{}", verification_code);
@@ -190,7 +203,8 @@ pub async fn list_proofs(
     State(state): State<AppState>,
     claims: Claims,
 ) -> Result<Json<Vec<serde_json::Value>>, AppError> {
-    let user_id = Uuid::parse_str(&claims.user_id).map_err(|e| AppError::Validation(format!("Invalid UUID: {}", e)))?;
+    let user_id = Uuid::parse_str(&claims.user_id)
+        .map_err(|e| AppError::Validation(format!("Invalid UUID: {}", e)))?;
 
     let rows = sqlx::query(
         r#"
@@ -236,16 +250,25 @@ pub async fn generate_direct(
     use crate::services::proof::{ProofInput, TransactionInput};
 
     // Debug: Log incoming request
-    tracing::info!("generate_direct: received {} transactions", req.transactions.len());
+    tracing::info!(
+        "generate_direct: received {} transactions",
+        req.transactions.len()
+    );
     if !req.transactions.is_empty() {
         let sample = &req.transactions[0];
-        tracing::info!("Sample transaction: timestamp={}, amount={}, type={}, ref={}",
-            sample.timestamp, sample.amount, sample.transaction_type, sample.reference);
+        tracing::info!(
+            "Sample transaction: timestamp={}, amount={}, type={}, ref={}",
+            sample.timestamp,
+            sample.amount,
+            sample.transaction_type,
+            sample.reference
+        );
     }
 
     // Convert to internal format
     let proof_input = ProofInput {
-        transactions: req.transactions
+        transactions: req
+            .transactions
             .into_iter()
             .map(|t| TransactionInput {
                 timestamp: t.timestamp,
@@ -256,14 +279,18 @@ pub async fn generate_direct(
             .collect(),
     };
 
-    tracing::info!("Proof input: {} transactions", proof_input.transactions.len());
+    tracing::info!(
+        "Proof input: {} transactions",
+        proof_input.transactions.len()
+    );
 
     // Create a temporary session ID for tracking
     let session_id = Uuid::new_v4();
 
     // Generate proof directly using RISC Zero (this will take time)
     // In dev mode (RISC0_DEV_MODE=1), this will be much faster
-    let proof_output = ProofService::execute_zkvm_proof_direct(proof_input).await
+    let proof_output = ProofService::execute_zkvm_proof_direct(proof_input)
+        .await
         .map_err(|e| AppError::Internal(anyhow::anyhow!("Proof generation failed: {}", e)))?;
 
     // Store result in a temporary session (or return directly)
@@ -327,4 +354,3 @@ pub async fn generate_direct(
         status: "completed".to_string(),
     }))
 }
-
